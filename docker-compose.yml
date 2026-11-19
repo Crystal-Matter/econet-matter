@@ -1,0 +1,24 @@
+services:
+  econet-matter:
+    build: .
+    network_mode: host
+    restart: unless-stopped
+    stop_grace_period: 1m
+    environment:
+      ECONET_EMAIL:
+      ECONET_PASSWORD:
+      ECONET_SERIAL_NUMBER:
+      ECONET_POWER_FILE:
+      MATTER_PORT: "${MATTER_PORT:-5540}"
+      TZ: "${TZ:-UTC}"
+      LOG_LEVEL: "${LOG_LEVEL:-info}"
+    volumes:
+      - matter-data:/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "1"
+
+volumes:
+  matter-data:
