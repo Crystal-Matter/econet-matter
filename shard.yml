@@ -1,0 +1,18 @@
+name: econet-matter
+version: 0.1.0
+crystal: ">= 1.22.0"
+license: MIT
+
+dependencies:
+  econet:
+    github: stakach/econet.cr
+    version: "~> 0.3.1"
+  goban:
+    github: soya-daizu/goban
+  matter:
+    github: Crystal-Matter/matter
+    branch: develop
+
+targets:
+  econet-matter:
+    main: src/econet-matter.cr
