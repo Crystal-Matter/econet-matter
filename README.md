@@ -58,6 +58,17 @@ docker compose logs -f econet-matter
 
 Use the manual pairing code from the log. For an external power meter, mount its containing directory read-only and point `ECONET_POWER_FILE` to the reading inside the container. The reading must be accessible to UID 10001.
 
+### Publish the Docker image
+
+Sign in to Docker Hub with an account that can push to `stakach/econet-matter`, then run the release script.
+
+```sh
+docker login
+./scripts/publish-image.sh
+```
+
+The script pulls the current builder image and uses Docker Buildx to publish one `stakach/econet-matter:latest` tag for `linux/amd64` and `linux/arm64`. The Dockerfile runs the Crystal compiler on the builder's native platform and links the result on each target platform.
+
 ## Electrical readings
 
 The service converts completed hourly EcoNet kWh readings to Matter mWh. It exposes the most recent completed period and a cumulative total of imported electricity recorded by the service. The total and the last processed period are persisted to avoid double-counting after a restart. Each poll looks at today's report and, until it finishes it, yesterday's report.
