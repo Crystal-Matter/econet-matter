@@ -38,6 +38,8 @@ At first start, scan the terminal QR code or enter the manual pairing code in yo
 
 Keep the state file between runs to retain Matter pairing. Use a separate file for each water heater.
 
+At startup, EcoNet connection failures retry with exponential backoff, from 5 seconds up to 5 minutes. An HTTP 429 starts the wait at one minute or longer. If the serial number does not match a heater, or EcoNet rejects the credentials, startup pauses until you correct the settings and restart the service.
+
 ## Docker
 
 Run Compose with host networking on a Linux machine on the same LAN as your Matter controller. The image builds with `84codes/crystal:latest-alpine` and runs as UID 10001. Compose stores pairing and energy state in the `matter-data` volume.
@@ -55,6 +57,8 @@ docker compose build --pull
 docker compose up -d
 docker compose logs -f econet-matter
 ```
+
+After correcting a value in `.env`, run `docker compose up -d` to apply the new configuration.
 
 Use the manual pairing code from the log. For an external power meter, mount its containing directory read-only and point `ECONET_POWER_FILE` to the reading inside the container. The reading must be accessible to UID 10001.
 

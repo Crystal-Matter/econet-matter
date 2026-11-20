@@ -3,6 +3,10 @@ module EcoNetMatter
     DEFAULT_STORAGE    = "data/econet-matter.yml"
     POWER_FILE_MAX_AGE = 2.minutes
 
+    private STARTUP_RETRY_DELAY     = 5.seconds
+    private RATE_LIMIT_RETRY_DELAY  = 1.minute
+    private MAX_STARTUP_RETRY_DELAY = 5.minutes
+
     HELP = <<-TEXT
       Usage: econet-matter
 
@@ -35,25 +39,72 @@ module EcoNetMatter
       storage_path = ENV["MATTER_STORAGE_FILE"]? || DEFAULT_STORAGE
       port = parse_port(ENV["MATTER_PORT"]?)
       meter = power_reader(ENV["ECONET_POWER_FILE"]?)
+      serial = ENV["ECONET_SERIAL_NUMBER"]?
 
-      client = EcoNet::Client.login(email, password)
-      heater = select_heater(client, ENV["ECONET_SERIAL_NUMBER"]?)
+      stop = Channel(Nil).new
+      Process.on_terminate { stop.close }
+      connection = connect_with_backoff(stop) do
+        client = EcoNet::Client.login(email, password)
+        return 0 if stop.closed?
+        {client, select_heater(client, serial)}
+      end
+      return 0 if stop.closed? || connection.nil?
+      client, heater = connection
       adapter = EcoNetHeater.new(client, heater)
       Dir.mkdir_p(File.dirname(storage_path), mode: 0o700)
       storage = Matter::Storage::YamlFile.new(storage_path)
 
       device = Device.new(adapter, storage, port: port, power_watts: meter)
-      Process.on_terminate { device.shutdown! }
+      if stop.closed?
+        device.shutdown!
+        return 0
+      end
       Log.info { "Starting Matter for #{heater.device_name}" }
       device.start
-      return 1 unless device.running?
+      return stop.closed? ? 0 : 1 unless device.running?
+      spawn do
+        stop.receive?
+        device.shutdown!
+      end
       device.await_shutdown
       0
-    rescue error : EcoNet::Error | Matter::Error | ArgumentError | IO::Error
+    rescue error : EcoNet::InvalidCredentialsError | ArgumentError
+      STDERR.puts "econet-matter: #{error.message}"
+      return 1 unless stop
+
+      # Keep the container from restarting and authenticating with the same settings.
+      STDERR.puts "econet-matter: Startup paused. Correct the configuration and restart."
+      stop.receive?
+      0
+    rescue error : EcoNet::Error | Matter::Error | IO::Error
       STDERR.puts "econet-matter: #{error.message}"
       1
     ensure
+      stop.try &.close
       storage.try &.close
+    end
+
+    private def self.connect_with_backoff(stop : Channel(Nil), &)
+      delay = STARTUP_RETRY_DELAY
+      until stop.closed?
+        begin
+          return yield
+        rescue error : EcoNet::InvalidCredentialsError
+          raise error
+        rescue error : EcoNet::Error
+          if error.is_a?(EcoNet::GenericHTTPError) && error.status_code == 429
+            delay = Math.max(delay, RATE_LIMIT_RETRY_DELAY)
+          end
+          STDERR.puts "econet-matter: #{error.message}. Retrying in #{delay.total_seconds.to_i}s."
+          select
+          when stop.receive?
+            break
+          when timeout(delay)
+            delay = Math.min(delay * 2, MAX_STARTUP_RETRY_DELAY)
+          end
+        end
+      end
+      nil
     end
 
     private def self.required_env(key : String) : String
