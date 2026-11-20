@@ -35,9 +35,11 @@ describe EcoNetMatter::Device do
     home = device.home_thermostat
     native = device.heater_thermostat
     target_attribute = Thermostat::ATTR_OCCUPIED_HEATING_SETPOINT
+    current_attribute = Thermostat::ATTR_LOCAL_TEMPERATURE
     mode_attribute = Thermostat::ATTR_SYSTEM_MODE
 
-    home.local_temperature.should be_nil
+    home.read_attribute(current_attribute, nil).as(TLV::Any).value.should eq(5800_i16)
+    native.read_attribute(current_attribute, nil).as(TLV::Any).value.should be_nil
     home.system_mode.should eq(SystemMode::Heat)
     home.thermostat_running_state.should eq(Thermostat::RelayState::None)
     home.occupied_heating_setpoint.should eq(5800)
@@ -57,15 +59,19 @@ describe EcoNetMatter::Device do
 
     home.write_attribute(target_attribute, TLV::Any.new(5900_i16)).success?.should be_true
     native.occupied_heating_setpoint.should eq(5900)
+    home.read_attribute(current_attribute, nil).as(TLV::Any).value.should eq(5900_i16)
+    home.thermostat_running_state.should eq(Thermostat::RelayState::None)
     heater.temperature_writes.should eq([59.0])
     native.setpoint_raise_lower(Thermostat::SetpointRaiseLowerRequest.new(Thermostat::SetpointAdjustMode::Heat, -10_i8)).success?.should be_true
     home.occupied_heating_setpoint.should eq(5800)
+    home.local_temperature.should eq(5800)
     heater.temperature_writes.should eq([59.0, 58.0])
 
     home.write_attribute(target_attribute, TLV::Any.new(8000_i16)).status.should eq(Matter::InteractionModel::StatusCode::ConstraintError)
     heater.reject_commands = true
     native.write_attribute(target_attribute, TLV::Any.new(6100_i16)).status.should eq(Matter::InteractionModel::StatusCode::Failure)
     home.occupied_heating_setpoint.should eq(5800)
+    home.local_temperature.should eq(5800)
     heater.temperature_writes.should eq([59.0, 58.0])
   ensure
     device.try &.shutdown!
@@ -83,7 +89,9 @@ describe EcoNetMatter::Device do
     heater.state = heater.state.copy_with(mode: Mode::Solar, set_point_celsius: 57.5, running: true, running_state: "Compressor Running", hot_water_percentage: 33)
     device.reconcile
     device.home_thermostat.occupied_heating_setpoint.should eq(5750)
+    device.home_thermostat.local_temperature.should eq(5750)
     device.heater_thermostat.occupied_heating_setpoint.should eq(5750)
+    device.heater_thermostat.local_temperature.should be_nil
     device.home_thermostat.thermostat_running_state.should eq(Thermostat::RelayState::Heat)
     mode.current_mode.should eq(Mode::Solar.value)
     device.management.heat_demand.should eq(Bridge::Management::HeatSource::HeatPump)

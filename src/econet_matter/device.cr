@@ -83,7 +83,8 @@ module EcoNetMatter
       write_mode = ->(mode : SystemMode) { change_system_mode(mode) }
       write_setpoint = ->(value : Int16) { change_setpoint(value) }
       @heater_thermostat = Thermostat.new(WATER_HEATER_ENDPOINT, matter_limits, target, write_mode, write_setpoint)
-      @home_thermostat = Thermostat.new(THERMOSTAT_ENDPOINT, matter_limits, target, write_mode, write_setpoint)
+      @home_thermostat = Thermostat.new(THERMOSTAT_ENDPOINT, matter_limits, target, write_mode, write_setpoint,
+        display_target_as_temperature: true)
       @thermostats = {@heater_thermostat, @home_thermostat}
 
       heater_endpoint = Matter::DataType::EndpointNumber.new(WATER_HEATER_ENDPOINT)
@@ -338,7 +339,7 @@ module EcoNetMatter
     end
 
     private def report_setpoint(target : Int16) : Nil
-      @thermostats.each(&.occupied_heating_setpoint=(target))
+      @thermostats.each(&.report_setpoint(target))
     end
 
     private def report_mode(id : UInt8) : Nil

@@ -6,14 +6,15 @@ module EcoNetMatter
     CENTI_DEGREES_PER_DEGREE = 100.0
 
     def initialize(endpoint_id : UInt16, bounds : Tuple(Int16, Int16), target : Int16,
-                   @write_mode : Proc(SystemMode, Status), @write_setpoint : Proc(Int16, Status))
+                   @write_mode : Proc(SystemMode, Status), @write_setpoint : Proc(Int16, Status),
+                   *, @display_target_as_temperature : Bool = false)
       minimum, maximum = bounds
       super(Matter::DataType::EndpointNumber.new(endpoint_id),
         feature_map: Feature::Heating | Feature::Events,
         abs_min_heat_setpoint_limit: minimum, abs_max_heat_setpoint_limit: maximum,
         min_heat_setpoint_limit: minimum, max_heat_setpoint_limit: maximum,
         occupied_heating_setpoint: target, control_sequence_of_operation: ControlSequenceOfOperation::HeatingOnly,
-        local_temperature: nil)
+        local_temperature: @display_target_as_temperature ? target : nil)
     end
 
     protected def handle_write_attribute(attribute_id : UInt32, value : TLV::Any) : Status
@@ -42,6 +43,15 @@ module EcoNetMatter
     def report_mode(heating_enabled : Bool, heating_now : Bool) : Nil
       self.system_mode = heating_enabled ? SystemMode::Heat : SystemMode::Off
       self.thermostat_running_mode = heating_now ? ThermostatRunningMode::Heat : ThermostatRunningMode::Off
+    end
+
+    def report_setpoint(target : Int16) : Nil
+      self.occupied_heating_setpoint = target
+      self.local_temperature = target if @display_target_as_temperature
+    end
+
+    # The bridge reports the actual running state from EcoNet in #report_mode.
+    private def update_running_mode : Nil
     end
 
     private def write_target(target : Int16) : Status

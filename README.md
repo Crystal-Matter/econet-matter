@@ -8,7 +8,7 @@ Expose one Rheem EcoNet water heater as a Matter node on your local network. The
 | 2 | Thermostat `0x0301` | Apple Home-facing target temperature, Off and Heat, and heating relay state |
 | 3 | Electrical Sensor `0x0510` | Electrical Power Measurement, Electrical Energy Measurement, and Power Topology linking the readings to both heater views |
 
-Both thermostat views operate the same heater. **Off** selects EcoNet Vacation, called **Holiday** on some models. **Heat** restores the previous heating mode. The heater must advertise Vacation or Holiday and at least one heating mode. The service uses the heater's reported set-point limits and sends the temperature through the EcoNet Celsius setter. Changes from EcoNet update both endpoints. The local temperature attribute is null because the EcoNet heater API provides a target temperature.
+Both thermostat views operate the same heater. **Off** selects EcoNet Vacation, called **Holiday** on some models. **Heat** restores the previous heating mode. The heater must advertise Vacation or Holiday and at least one heating mode. The service uses the heater's reported set-point limits and sends the temperature through the EcoNet Celsius setter. Changes from EcoNet update both endpoints. The Apple Home thermostat displays the target in its current-temperature field because EcoNet supplies the target without a measured tank temperature.
 
 Water Heater Management includes heat demand and the tank availability reported by the heater. Timed Boost is available on heaters that advertise High Demand or Performance. The service restores the previous mode on cancellation or expiry. The separate Boost control advertised by some Rheem models, including Nash, has no verified EcoNet command mapping in this service.
 
