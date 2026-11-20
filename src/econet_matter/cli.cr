@@ -29,10 +29,7 @@ module EcoNetMatter
       end
       raise ArgumentError.new("Use --help for configuration") unless ARGV.empty?
 
-      backend = ::Log::IOBackend.new
-      ::Log.setup(::Log::Severity.parse(ENV["LOG_LEVEL"]? || "info"), backend)
-      # The MQTT shard's debug output can contain authentication packet fields.
-      ::Log.setup("mqtt", :warn, backend)
+      configure_logging(::Log::Severity.parse(ENV["LOG_LEVEL"]? || "info"), ::Log::IOBackend.new)
 
       email = required_env("ECONET_EMAIL")
       password = required_env("ECONET_PASSWORD")
@@ -82,6 +79,14 @@ module EcoNetMatter
     ensure
       stop.try &.close
       storage.try &.close
+    end
+
+    def self.configure_logging(level : ::Log::Severity, backend : ::Log::Backend, *, builder : ::Log::Builder = ::Log.builder) : Nil
+      ::Log.setup(builder: builder) do |config|
+        config.bind("*", level, backend)
+        # MQTT debug output can include authentication packet fields.
+        config.bind("mqtt.*", Math.max(level, ::Log::Severity::Info), backend)
+      end
     end
 
     private def self.connect_with_backoff(stop : Channel(Nil), &)

@@ -34,7 +34,7 @@ At first start, scan the terminal QR code or enter the manual pairing code in yo
 | `MATTER_PORT` | Matter port, with 5540 as the default. Set 0 to choose an available port |
 | `TZ` | Set this to the heater's time zone when the host uses a different zone, for example `Australia/Sydney` |
 | `ECONET_POWER_FILE` | Optional path to a meter's latest numeric active power reading in watts |
-| `LOG_LEVEL` | Defaults to `info` |
+| `LOG_LEVEL` | Defaults to `info`. Set `debug` or `trace` for more detail. MQTT reconnect messages are logged at `info`, and MQTT packet dumps are filtered out. |
 
 Keep the state file between runs to retain Matter pairing. Use a separate file for each water heater.
 
