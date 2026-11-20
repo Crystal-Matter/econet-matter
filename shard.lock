@@ -18,7 +18,7 @@ shards:
 
   econet:
     git: https://github.com/stakach/econet.cr.git
-    version: 0.3.1
+    version: 0.3.2
 
   ed25519:
     git: https://github.com/spider-gazelle/ed25519.git
