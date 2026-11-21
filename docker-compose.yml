@@ -1,5 +1,6 @@
 services:
   econet-matter:
+    container_name: econet
     image: stakach/econet-matter:latest
     # build: .
     network_mode: host
