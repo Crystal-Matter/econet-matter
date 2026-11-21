@@ -54,13 +54,25 @@ ECONET_PASSWORD='your EcoNet password'
 TZ=Australia/Sydney
 ```
 
+Compose runs as UID and GID 1000 by default. To run as a different deployment account, set `MATTER_UID` and `MATTER_GID` in `.env` to that account's `id -u` and `id -g`.
+
+Make sure the container user can write to `matter-data/` and any restored files before starting Compose. If you need to fix ownership, this command uses the default IDs.
+
 ```sh
-docker compose build --pull
+sudo chown -R 1000:1000 ./matter-data/
+```
+
+Replace both numbers with the configured IDs if you changed them.
+
+```sh
+docker compose pull
 docker compose up -d
 docker compose logs -f econet-matter
 ```
 
-Compose runs as UID and GID 1000 by default. If the owner of `matter-data/` uses different IDs, set `MATTER_UID` and `MATTER_GID` in `.env` to the values from `id -u` and `id -g`. The host directory must be writable by that user. Run `docker compose up -d` after editing `.env`.
+To build locally, uncomment `build: .` in `docker-compose.yml` and run `docker compose up -d --build`.
+
+Run `docker compose up -d` after editing `.env`.
 
 Use the manual pairing code from the log. For an external power meter, mount its containing directory read-only and point `ECONET_POWER_FILE` to the reading inside the container. The container user must be able to read the file.
 
@@ -95,14 +107,15 @@ volume=econet-matter_matter-data
 )
 ```
 
-With the updated checkout and the same `.env`, start the bridge and check that your existing controller can still read the heater.
+With the updated checkout and the same `.env`, check that the restored files belong to the configured Compose user before starting the bridge. Then check that your existing controller can still read the heater.
 
 ```sh
-docker compose up -d --build
+docker compose pull
+docker compose up -d
 docker compose logs -f econet-matter
 ```
 
-Keep the old volume and the archive until pairing and the energy total have been verified. For future moves, stop the bridge and copy `matter-data/` and `.env` to the new host. Keep these backups private because `matter-data/` contains Matter fabric keys and `.env` contains EcoNet credentials.
+Keep the old volume and the archive until pairing and the energy total have been verified. For future moves, stop the bridge and copy `matter-data/` and `.env` to the new host, then check ownership before starting Compose. Keep these backups private because `matter-data/` contains Matter fabric keys and `.env` contains EcoNet credentials.
 
 ### Publish the Docker image
 
