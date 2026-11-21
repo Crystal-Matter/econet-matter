@@ -4,3 +4,5 @@
 /docs/
 .env
 .env.*
+/matter-data/*
+!/matter-data/.keep

@@ -4,6 +4,7 @@ services:
     network_mode: host
     restart: unless-stopped
     stop_grace_period: 1m
+    user: "${MATTER_UID:-1000}:${MATTER_GID:-1000}"
     environment:
       ECONET_EMAIL:
       ECONET_PASSWORD:
@@ -13,12 +14,13 @@ services:
       TZ: "${TZ:-UTC}"
       LOG_LEVEL: "${LOG_LEVEL:-info}"
     volumes:
-      - matter-data:/data
+      - type: bind
+        source: ./matter-data
+        target: /data
+        bind:
+          create_host_path: false
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "1"
-
-volumes:
-  matter-data:

@@ -42,7 +42,9 @@ At startup, EcoNet connection failures retry with exponential backoff, from 5 se
 
 ## Docker
 
-Run Compose with host networking on a Linux machine on the same LAN as your Matter controller. The image builds with `84codes/crystal:latest-alpine` and runs as UID 10001. Compose stores pairing and energy state in the `matter-data` volume.
+Run Compose with host networking on a Linux machine on the same LAN as your Matter controller. The image builds with `84codes/crystal:latest-alpine`. Compose mounts `./matter-data/` at `/data` and stores pairing, saved heater mode and energy history there. Git tracks only the directory placeholder.
+
+If your deployment uses the original Docker named volume, copy its state before starting the updated service. [Migration guide](#migrate-from-a-docker-named-volume)
 
 Create a `.env` file beside `docker-compose.yml` with your account details and the heater's time zone.
 
@@ -58,9 +60,49 @@ docker compose up -d
 docker compose logs -f econet-matter
 ```
 
-After correcting a value in `.env`, run `docker compose up -d` to apply the new configuration.
+Compose runs as UID and GID 1000 by default. If the owner of `matter-data/` uses different IDs, set `MATTER_UID` and `MATTER_GID` in `.env` to the values from `id -u` and `id -g`. The host directory must be writable by that user. Run `docker compose up -d` after editing `.env`.
 
-Use the manual pairing code from the log. For an external power meter, mount its containing directory read-only and point `ECONET_POWER_FILE` to the reading inside the container. The reading must be accessible to UID 10001.
+Use the manual pairing code from the log. For an external power meter, mount its containing directory read-only and point `ECONET_POWER_FILE` to the reading inside the container. The container user must be able to read the file.
+
+### Migrate from a Docker named volume
+
+Run these commands from the deployment directory. If you use a custom Compose project name, keep using it. Stop the existing bridge so it can flush its Matter state, then list the named volumes.
+
+```sh
+docker compose stop econet-matter
+docker volume ls --filter label=com.docker.compose.volume=matter-data --format '{{.Name}}'
+```
+
+Set `volume` to the name for this EcoNet project, typically `econet-matter_matter-data`. The following commands keep a private archive in your home directory and restore it as the current user. Start with an empty `matter-data/` directory containing only the tracked `.keep` file.
+
+```sh
+volume=econet-matter_matter-data
+(
+  set -e
+  umask 077
+  docker volume inspect "$volume" >/dev/null
+  mkdir -p ./matter-data
+  if [ -n "$(find ./matter-data -mindepth 1 -maxdepth 1 ! -name .keep -print -quit)" ]; then
+    echo "Move the existing matter-data/ contents to a backup location first." >&2
+    exit 1
+  fi
+  backup=$(mktemp "$HOME/econet-matter-backup.XXXXXX")
+  docker run --rm --mount "type=volume,source=$volume,target=/source,readonly" \
+    alpine:3.24 sh -ec 'test -s /source/econet-matter.yml && tar -C /source -cf - .' > "$backup"
+  tar --no-same-owner --no-same-permissions -xf "$backup" -C ./matter-data
+  test -s ./matter-data/econet-matter.yml
+  printf 'Saved the original volume archive at %s\n' "$backup"
+)
+```
+
+With the updated checkout and the same `.env`, start the bridge and check that your existing controller can still read the heater.
+
+```sh
+docker compose up -d --build
+docker compose logs -f econet-matter
+```
+
+Keep the old volume and the archive until pairing and the energy total have been verified. For future moves, stop the bridge and copy `matter-data/` and `.env` to the new host. Keep these backups private because `matter-data/` contains Matter fabric keys and `.env` contains EcoNet credentials.
 
 ### Publish the Docker image
 
